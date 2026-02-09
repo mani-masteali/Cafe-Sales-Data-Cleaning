@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 
 def schema_normalization(df):
     # Create a copy of the DataFrame to avoid modifying the original data
@@ -102,6 +103,29 @@ def categorical_value_counts(df,col,dropna=True):
     # Get value counts for a categorical column, optionally including NaN values
     df = df.copy()
     return df[col].value_counts(dropna=dropna).to_dict()
+def validate_money_consistency(df, tol=0.01):
+    # Validate that Total Spent is approximately equal to Quantity * Price Per Unit within a specified tolerance
+    df = df.copy()
+    q = df["Quantity"]
+    p = df["Price Per Unit"]
+    t = df["Total Spent"]
+
+    complete = q.notna() & p.notna() & t.notna()
+    expected = q.astype(float) * p
+
+    diff = (t - expected).abs()
+    mismatch = complete & (diff > tol)
+    
+    df["flag_money_mismatch"] = mismatch
+    df["money_expected_total"] = pd.Series(pd.NA, index=df.index, dtype="Float64")
+    df.loc[complete, "money_expected_total"] = expected.loc[complete]
+
+    report = {
+        "n_checked_complete": int(complete.sum()),
+        "n_money_mismatch": int(mismatch.sum()),
+        "tol": float(tol),
+    }
+    return df, report
 df = pd.read_csv("dirty_cafe_sales.csv")
 pd.set_option("display.max_columns",None)
 df = schema_normalization(df)
