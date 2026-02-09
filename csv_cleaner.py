@@ -19,7 +19,7 @@ def validate_transaction_identity(df):
     ID_COL = "Transaction ID"
     COLS = ["Transaction ID", "Item", "Quantity", "Price Per Unit", "Total Spent", "Payment Method", "Location", "Transaction Date"]
     id_is_null = df[ID_COL].isna()
-    id_is_blank = df[ID_COL].filna("").str.strip().eq("")
+    id_is_blank = df[ID_COL].fillna("").str.strip().eq("")
     id_missing = id_is_null | id_is_blank
     id_present = ~id_missing
     id_duplicated = id_present & df[ID_COL].duplicated(keep=False)
@@ -35,9 +35,73 @@ def validate_transaction_identity(df):
         "n_exact_duplicated_rows" : int(row_exact_duo.sum()),
     }
     return df, report
+def reconstruct_monetary_fields(df):
+    # Reconstruct Total Spent from Quantity and Price Per Unit
+    df = df.copy()
+    q = df["Quantity"]
+    p = df["Price Per Unit"]
+    t = df["Total Spent"]
+    q_ok = q.notna()
+    p_ok = p.notna()
+    t_ok = t.notna()
+    present_count = q_ok.astype(int) + p_ok.astype(int) + t_ok.astype(int)
+    # Define flags based on the presence of monetary fields
+    df["flag_money_complete"] = present_count == 3
+    df["flag_money_reconstructable"] = (present_count == 2)
+    df["flag_money_unrecoverable"] = present_count <= 1
 
+    df["flag_need_total"] = (~t_ok) & q_ok & p_ok
+    df["flag_need_quantity"] = (~q_ok) & p_ok & t_ok
+    df["flag_need_price"] = (~p_ok) & q_ok & t_ok
+
+    # division-by-zero blockers
+    df["flag_div0_qty"] = df["flag_need_price"] & (q == 0)
+    df["flag_div0_price"] = df["flag_need_quantity"] & (p == 0)
+
+    df["flag_money_blocked"] = df["flag_div0_qty"] | df["flag_div0_price"]
+
+    # Perform reconstruction where possible
+    m_total = df["flag_need_total"]
+    m_qty = df["flag_need_quantity"] & ~df["flag_div0_price"]
+    m_price = df["flag_need_price"] & ~df["flag_div0_qty"]
+
+    df["flag_reconstructed_total"] = m_total
+    df["flag_reconstructed_quantity"] = m_qty
+    df["flag_reconstructed_price"] = m_price
+
+    df.loc[m_total, "Total Spent"] = df.loc[m_total, "Quantity"] * df.loc[m_total, "Price Per Unit"]
+    qty_calc = df.loc[m_qty, "Total Spent"] / df.loc[m_qty, "Price Per Unit"]
+    df.loc[m_qty, "Quantity"] = qty_calc.round().astype("Int64")  # Round to nearest integer and convert to nullable integer type
+    df.loc[m_price, "Price Per Unit"] = df.loc[m_price, "Total Spent"] / df.loc[m_price, "Quantity"]
+
+    q_ok2 = df["Quantity"].notna()
+    p_ok2 = df["Price Per Unit"].notna()
+    t_ok2 = df["Total Spent"].notna()
+    present_count2 = q_ok2.astype(int) + p_ok2.astype(int) + t_ok2.astype(int)
+
+    df["flag_money_complete"] = present_count2 == 3
+    df["flag_money_reconstructable"] = (present_count2 == 2)
+    df["flag_money_unrecoverable"] = present_count2 <= 1
+
+    report = {
+        "n_reconstructed_total": int(m_total.sum()),
+        "n_reconstructed_quantity": int(m_qty.sum()),
+        "n_reconstructed_price": int(m_price.sum()),
+        "n_blocked_div0": int(df["flag_money_blocked"].sum()),
+        "n_unrecoverable_after" : int(df["flag_money_unrecoverable"].sum()),
+    }
+    return df, report
 df = pd.read_csv("dirty_cafe_sales.csv")
 pd.set_option("display.max_columns",None)
 df = schema_normalization(df)
 # Display DataFrame info to verify schema normalization
-print(df.info())
+df.info()
+
+df, id_report = validate_transaction_identity(df)
+print("Transaction Identity Validation Report:", id_report)
+
+df, money_report = reconstruct_monetary_fields(df)
+print("Monetary Fields Reconstruction Report:", money_report)
+
+print("null count (money):")
+print(df[["Quantity", "Price Per Unit", "Total Spent"]].isna().sum())
