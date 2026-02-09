@@ -13,6 +13,13 @@ def schema_normalization(df):
     df["Location"] = df["Location"].astype("string")
     df["Transaction Date"] = pd.to_datetime(df["Transaction Date"],errors="coerce") # Convert to datetime, coercing errors to NaT
     return df
+def sort_by_transaction_date(df):
+    # Sort the DataFrame by Transaction Date in ascending order
+    df = df.copy()
+    df = df.sort_values(
+    by=["Transaction Date", "Transaction ID"],
+    kind="mergesort").reset_index(drop=True)
+    return df
 def validate_transaction_identity(df):
    # making sure whether transaction IDs are unique and not null
     df = df.copy()
@@ -98,6 +105,7 @@ def categorical_value_counts(df,col,dropna=True):
 df = pd.read_csv("dirty_cafe_sales.csv")
 pd.set_option("display.max_columns",None)
 df = schema_normalization(df)
+df = sort_by_transaction_date(df)
 # Display DataFrame info to verify schema normalization
 df.info()
 
