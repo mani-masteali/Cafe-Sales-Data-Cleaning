@@ -91,6 +91,10 @@ def reconstruct_monetary_fields(df):
         "n_unrecoverable_after" : int(df["flag_money_unrecoverable"].sum()),
     }
     return df, report
+def categorical_value_counts(df,col,dropna=True):
+    # Get value counts for a categorical column, optionally including NaN values
+    df = df.copy()
+    return df[col].value_counts(dropna=dropna).to_dict()
 df = pd.read_csv("dirty_cafe_sales.csv")
 pd.set_option("display.max_columns",None)
 df = schema_normalization(df)
@@ -105,3 +109,10 @@ print("Monetary Fields Reconstruction Report:", money_report)
 
 print("null count (money):")
 print(df[["Quantity", "Price Per Unit", "Total Spent"]].isna().sum())
+
+item_counts = categorical_value_counts(df, "Item")
+payment_counts = categorical_value_counts(df, "Payment Method")
+location_counts = categorical_value_counts(df, "Location")
+print("Item Value Counts:", item_counts)
+print("Payment Method Value Counts:", payment_counts)
+print("Location Value Counts:", location_counts)
