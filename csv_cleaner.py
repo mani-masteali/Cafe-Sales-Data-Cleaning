@@ -126,6 +126,32 @@ def validate_money_consistency(df, tol=0.01):
         "tol": float(tol),
     }
     return df, report
+def build_quality_report(df):
+    df = df.copy()
+    issues = []
+    id_col = "Transaction ID"
+    # unrecovertable money issues
+    if "flag_money_unrecoverable" in df.columns:
+        m = df["flag_money_unrecoverable"].fillna(False)
+        if m.any():
+            issues.append(pd.DataFrame({ id_col: df.loc[m, id_col].astype("string").values, "issue": "unrecoverable_money"}))
+    # missing dates
+    m = df["Transaction Date"].isna()
+    if m.any():
+        issues.append(pd.DataFrame({ id_col: df.loc[m, id_col].astype("string").values, "issue": "missing_transaction_date"}))
+    # money mismatches
+    if "flag_money_mismatch" in df.columns:
+        m = df["flag_money_mismatch"].fillna(False)
+        if m.any():
+            issues.append(pd.DataFrame({ id_col: df.loc[m, id_col].astype("string").values, "issue": "money_mismatch"}))
+    if not issues:
+        return pd.DataFrame(columns=[id_col, "issue"])
+    report_df = pd.concat(issues, ignore_index=True)
+
+    report_df = report_df.sort_values([id_col,"issue"]).reset_index(drop=True)
+    return report_df
+
+
 df = pd.read_csv("dirty_cafe_sales.csv")
 pd.set_option("display.max_columns",None)
 df = schema_normalization(df)
