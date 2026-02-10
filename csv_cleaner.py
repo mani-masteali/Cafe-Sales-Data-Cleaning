@@ -154,7 +154,7 @@ def export_clean_dataset(df,csv_out_path="clean_cafe_sales.csv"):
     BUSINESS_COLS = ["Transaction ID", "Item", "Quantity", "Price Per Unit", "Total Spent", "Payment Method", "Location", "Transaction Date"]
     out = df[BUSINESS_COLS].copy()
     out = out.sort_values(["Transaction Date","Transaction ID"],kind="mergesort").reset_index(drop=True)
-    out.to_csv(csv_out_path, index=False)
+    out.to_csv(csv_out_path, index=False, na_rep="NA")
     return out
 
 df = pd.read_csv("dirty_cafe_sales.csv")
@@ -188,3 +188,17 @@ quality_report = build_quality_report(df)
 print("Quality report issue counts: \n", quality_report["issue"].value_counts(dropna=False))
 export_clean_dataset(df,csv_out_path="clean_cafe_sales.csv")
 quality_report.to_csv("data_quality_issues.csv", index=False)
+
+# sanity checks
+print(df["Transaction Date"].isna().sum())
+print(df.loc[df["Transaction Date"].isna(), ["Transaction ID","Transaction Date"]].head(10))
+money_cols = ["Quantity","Price Per Unit","Total Spent"]
+print(df[money_cols].isna().sum())
+print(df.loc[df[money_cols].isna().any(axis=1), ["Transaction ID"] + money_cols].head(10))
+
+out = pd.read_csv("clean_cafe_sales.csv")
+print(out.tail(20))
+print("Missing dates in exported:", out["Transaction Date"].isna().sum())
+
+issues = pd.read_csv("data_quality_issues.csv")
+print(issues["issue"].value_counts())
