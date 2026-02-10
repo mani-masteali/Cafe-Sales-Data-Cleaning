@@ -101,7 +101,6 @@ def reconstruct_monetary_fields(df):
     return df, report
 def categorical_value_counts(df,col,dropna=True):
     # Get value counts for a categorical column, optionally including NaN values
-    df = df.copy()
     return df[col].value_counts(dropna=dropna).to_dict()
 def validate_money_consistency(df, tol=0.01):
     # Validate that Total Spent is approximately equal to Quantity * Price Per Unit within a specified tolerance
@@ -150,12 +149,18 @@ def build_quality_report(df):
 
     report_df = report_df.sort_values([id_col,"issue"]).reset_index(drop=True)
     return report_df
-
+def export_clean_dataset(df,csv_out_path="clean_cafe_sales.csv"):
+    # Export the cleaned DataFrame to a new CSV file
+    BUSINESS_COLS = ["Transaction ID", "Item", "Quantity", "Price Per Unit", "Total Spent", "Payment Method", "Location", "Transaction Date"]
+    out = df[BUSINESS_COLS].copy()
+    out = out.sort_values(["Transaction Date","Transaction ID"],kind="mergesort").reset_index(drop=True)
+    out.to_csv(csv_out_path, index=False)
+    return out
 
 df = pd.read_csv("dirty_cafe_sales.csv")
 pd.set_option("display.max_columns",None)
 df = schema_normalization(df)
-df = sort_by_transaction_date(df)
+
 # Display DataFrame info to verify schema normalization
 df.info()
 
@@ -174,3 +179,12 @@ location_counts = categorical_value_counts(df, "Location")
 print("Item Value Counts:", item_counts)
 print("Payment Method Value Counts:", payment_counts)
 print("Location Value Counts:", location_counts)
+
+df, money_check_report = validate_money_consistency(df, tol=0.01)
+print("Money Consistency Report:", money_check_report)
+df = sort_by_transaction_date(df)
+
+quality_report = build_quality_report(df)
+print("Quality report issue counts: \n", quality_report["issue"].value_counts(dropna=False))
+export_clean_dataset(df,csv_out_path="clean_cafe_sales.csv")
+quality_report.to_csv("data_quality_issues.csv", index=False)
