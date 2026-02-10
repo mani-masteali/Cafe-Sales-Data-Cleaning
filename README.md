@@ -9,6 +9,11 @@ This project focuses on cleaning and validating a cafe sales dataset containing 
 - Structure: Transaction-level sales records
 - Goal: Clean and validate the data without altering meaning of transactions.
 
+<h2>How to run</h2>
+```bash
+pip install pandas numpy
+python csv_cleaner.py
+
 <h2>Cleaning Steps</h2>
 <h3>1. Schema Normalization</h3>
 All columns were explicitly cast to appropriate data types (strings, nullable integers, floats, and datetimes).
